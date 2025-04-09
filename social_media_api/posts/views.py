@@ -2,7 +2,7 @@ from django.shortcuts import render
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated  # Permission classes
 from .models import Post, Follow, Like, Comment, Notification, DirectMessage, UserProfile
-from .serializers import PostSerializer, FollowSerializer, LikeSerializer, CommentSerializer, NotificationSerializer, DirectMessageSerializer, UserProfileSerializer, UserRegistrationSerializer
+from .serializers import PostSerializer, FollowSerializer, LikeSerializer, CommentSerializer, NotificationSerializer, DirectMessageSerializer, UserProfileSerializer, UserRegistrationSerializer, UserLoginSerializer
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import authenticate
@@ -77,6 +77,9 @@ class UserProfileViewSet(viewsets.ModelViewSet, APIView):
         return Response(serializer.errors, status=400)
     
 class UserRegistrationViewSet(viewsets.ModelViewSet, APIView):
+    serializer_class = UserRegistrationSerializer
+    authentication_classes = []  # No authentication required
+    permission_classes = []
     def post(self, request):
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
@@ -85,12 +88,16 @@ class UserRegistrationViewSet(viewsets.ModelViewSet, APIView):
             return Response({'message': 'User registered successfully!', 'token': token.key}, status=HTTP_201_CREATED)
         return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
     
-class UserLoginViewSet(viewsets.ModelViewSet, APIView):
-    def post(self, request):
-        username = request.data.get('username')
-        password = request.data.get('password')
-        user = authenticate(username=username, password=password)
-        if user:
-            token, _ = Token.objects.get_or_create(user=user)
+class UserLoginViewSet(viewsets.ModelViewSet):
+    serializer_class = UserLoginSerializer  # Specify the serializer class
+
+    authentication_classes = []  # No authentication required for login
+    permission_classes = []  # No permissions required for login
+
+    def create(self, request):
+        serializer = self.serializer_class(data=request.data)  # Validate the input
+        if serializer.is_valid():
+            user = serializer.validated_data['user']  # Retrieve the authenticated user
+            token, _ = Token.objects.get_or_create(user=user)  # Generate or retrieve the user's token
             return Response({'message': 'Login successful!', 'token': token.key})
-        return Response({'error': 'Invalid credentials'}, status=HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
