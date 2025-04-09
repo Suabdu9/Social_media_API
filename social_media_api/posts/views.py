@@ -1,9 +1,15 @@
 from django.shortcuts import render
-from rest_framework import viewsets  # For creating ViewSets
+from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated  # Permission classes
-from .models import Post, Follow, Like, Comment, Notification, DirectMessage 
-from .serializers import PostSerializer, FollowSerializer, LikeSerializer, CommentSerializer, NotificationSerializer, DirectMessageSerializer
+from .models import Post, Follow, Like, Comment, Notification, DirectMessage, UserProfile
+from .serializers import PostSerializer, FollowSerializer, LikeSerializer, CommentSerializer, NotificationSerializer, DirectMessageSerializer, UserProfileSerializer, UserRegistrationSerializer
 from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
+from django.contrib.auth import authenticate
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.authtoken.models import Token
+from rest_framework.status import HTTP_201_CREATED, HTTP_400_BAD_REQUEST
 
 def home(request):
     return HttpResponse("Welcome to the Social Media API! Go to /api/ for the endpoints.")
@@ -53,3 +59,38 @@ class DirectMessageViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return self.queryset.filter(sender=self.request.user) | self.queryset.filter(receiver=self.request.user)
+
+class UserProfileViewSet(viewsets.ModelViewSet, APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, user_id):
+        profile = get_object_or_404(UserProfile, user__id=user_id)
+        serializer = UserProfileSerializer(profile)
+        return Response(serializer.data)
+
+    def put(self, request, user_id):
+        profile = get_object_or_404(UserProfile, user__id=user_id)
+        serializer = UserProfileSerializer(profile, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Profile updated successfully!"})
+        return Response(serializer.errors, status=400)
+    
+class UserRegistrationViewSet(viewsets.ModelViewSet, APIView):
+    def post(self, request):
+        serializer = UserRegistrationSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            token, _ = Token.objects.get_or_create(user=user)
+            return Response({'message': 'User registered successfully!', 'token': token.key}, status=HTTP_201_CREATED)
+        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
+    
+class UserLoginViewSet(viewsets.ModelViewSet, APIView):
+    def post(self, request):
+        username = request.data.get('username')
+        password = request.data.get('password')
+        user = authenticate(username=username, password=password)
+        if user:
+            token, _ = Token.objects.get_or_create(user=user)
+            return Response({'message': 'Login successful!', 'token': token.key})
+        return Response({'error': 'Invalid credentials'}, status=HTTP_400_BAD_REQUEST)

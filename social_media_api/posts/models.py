@@ -5,7 +5,7 @@ class Post(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     content = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
-    media = models.URLField(blank=True, null=True)
+    media = models.FileField(upload_to='posts/media/', blank=True, null=True)  # For uploaded files
 
     def __str__(self):
         return self.content[:20]
@@ -46,3 +46,13 @@ class DirectMessage(models.Model):
     receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_messages')
     content = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    bio = models.TextField(blank=True)
+    location = models.CharField(max_length=255, blank=True)
+    website = models.URLField(blank=True)
+    cover_photo = models.ImageField(upload_to='cover_photos/', blank=True)
+
+    def __str__(self):
+        return self.user.username
